@@ -65,7 +65,7 @@ class SparkOperations(spark: SparkSession) {
     genreRatings
       .groupBy("genre")
       .agg(
-        avg("rating").as("avgRating"),
+        round(avg("rating"), 2).as("avgRating"),
         count("*").as("movieCount")
       )
       .as[GenreStats]
@@ -79,7 +79,7 @@ class SparkOperations(spark: SparkSession) {
     val movieStats = ratings
       .groupBy("movieId")
       .agg(
-        avg("rating").as("avgRating"),
+        round(avg("rating"), 2).as("avgRating"),
         count("*").as("ratingCount")
       )
       .filter(col("ratingCount") >= minRatings)
@@ -87,11 +87,10 @@ class SparkOperations(spark: SparkSession) {
     movies
       .join(movieStats, "movieId")
       .select(
-        col("title").as("_1"),
-        col("avgRating").as("_2"),
-        col("ratingCount").as("_3")
+        col("title"),
+        col("avgRating"),
+        col("ratingCount")
       )
-      .orderBy(desc("_2"))
       .as[(String, Double, Long)]
   }
 
