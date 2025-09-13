@@ -1,28 +1,25 @@
 package transformations
 
 import Models._
-import scala.util.{Try, Success, Failure}
+import scala.util.Try
 
-/**
- * Pure functional data loading operations
- * Separates I/O from pure transformations
- */
-object DataLoader {
+object DataLoader extends DataLoaderTrait {
 
-  /**
-   * Pure function to parse a movie CSV line
-   * @param line CSV line as string
-   * @return Option[Movie] - None if parsing fails
-   */
-  def parseMovieLine(line: String): Option[Movie] = {
-    val parts = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)")
-    if (parts.length >= 3) {
-      Try {
-        val movieId = parts(0).toInt
-        val title = parts(1).replaceAll("\"", "")
-        val genres = if (parts.length > 2) parts(2) else ""
-        Movie(movieId, title, genres)
-      }.toOption
-    } else None
+  private def safeParse[T](line: String)(parseLogic: String => T): Option[T] = {
+    Try(parseLogic(line)).toOption
+  }
+
+  override def parseMovieLine(line: String): Option[Movie] = {
+    safeParse(line) { line =>
+      val parts = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)")
+      parts match {
+        case Array(movieId, title, genres, _*) =>
+          Movie(movieId.toInt, title.replaceAll("\"", ""), genres)
+        case Array(movieId, title) =>
+          Movie(movieId.toInt, title.replaceAll("\"", ""), "")
+        case _ =>
+          throw new IllegalArgumentException("Invalid CSV format")
+      }
+    }
   }
 }

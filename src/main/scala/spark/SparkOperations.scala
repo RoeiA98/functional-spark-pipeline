@@ -5,14 +5,14 @@ import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.rdd.RDD
 import transformations.DataLoader
-import scala.util.{Try, Success, Failure}
+import scala.util.Try
 import org.apache.spark.sql.expressions.Window
 
 /**
  * Spark operations for movie data processing
  * Demonstrates functional transformations with Spark
  */
-class SparkOperations(spark: SparkSession) {
+class SparkOperations(spark: SparkSession) extends SparkOperationsTrait {
   import spark.implicits._
 
   /**
