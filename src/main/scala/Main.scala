@@ -1,7 +1,5 @@
 import org.apache.spark.sql.SparkSession
 import spark.SparkOperations
-import transformations.{DataLoader, MovieAnalytics}
-import org.apache.log4j.{Level, Logger}
 import scala.util.{Success, Failure}
 
 object Main {
