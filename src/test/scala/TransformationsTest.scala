@@ -1,7 +1,7 @@
+import Models.{Movie, Rating}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import transformations.{DataLoader, MovieAnalytics}
-import data.{Movie, Rating}
 
 /**
  * Unit tests demonstrating separation of pure logic from I/O

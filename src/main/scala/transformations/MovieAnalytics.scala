@@ -1,7 +1,6 @@
 package transformations
 
-import data.{Movie, Rating, GenreStats}
-import combinators.DataCombiners._
+import Models._
 import scala.util.{Try, Success, Failure}
 
 /**
@@ -23,19 +22,6 @@ object MovieAnalytics {
   }
 
   /**
-   * Pattern matching for movie genres
-   */
-  def categorizeGenre(movie: Movie): String = movie match {
-    case Movie(_, _, genres) if genres.contains("Action") && genres.contains("Adventure") => "Action-Adventure"
-    case Movie(_, _, genres) if genres.contains("Comedy") && genres.contains("Romance") => "Romantic Comedy"
-    case Movie(_, _, genres) if genres.contains("Sci-Fi") => "Science Fiction"
-    case Movie(_, _, genres) if genres.contains("Horror") => "Horror"
-    case Movie(_, _, genres) if genres.contains("Drama") => "Drama"
-    case Movie(_, _, genres) if genres.contains("Animation") => "Animation"
-    case _ => "Other"
-  }
-
-  /**
    * Extract year from movie title using pattern matching
    */
   def extractYear(title: String): Option[Int] = {
@@ -43,35 +29,6 @@ object MovieAnalytics {
     title match {
       case yearPattern(year) => Try(year.toInt).toOption
       case _ => None
-    }
-  }
-
-  /**
-   * Function composition example - combine multiple transformations
-   */
-  val processMovieData: Movie => (String, Option[Int], String) = { movie =>
-    val category = categorizeGenre(movie)
-    val year = extractYear(movie.title)
-    val titleClean = movie.title.replaceAll("""\(\d{4}\)""", "").trim
-    (titleClean, year, category)
-  }
-
-  /**
-   * Higher-order function for rating analysis
-   */
-  def analyzeRatings[T](ratings: List[Rating],
-                        transform: Rating => T,
-                        predicate: T => Boolean): List[T] = {
-    ratings.map(transform).filter(predicate)
-  }
-
-  /**
-   * Curried function for filtering by decade
-   */
-  val filterByDecade: Int => Movie => Boolean = decade => movie => {
-    extractYear(movie.title) match {
-      case Some(year) => year >= decade && year < decade + 10
-      case None => false
     }
   }
 
