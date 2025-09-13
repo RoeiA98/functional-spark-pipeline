@@ -1,5 +1,7 @@
+package main
+
 import org.apache.spark.sql.SparkSession
-import spark.SparkOperations
+import spark.{SparkOperations, SparkOperationsTrait}
 import scala.util.{Success, Failure}
 
 object Main {
@@ -13,9 +15,8 @@ object Main {
 
     println("=== STARTING TO LOAD DATA ===")
     try {
-      val sparkOps = new SparkOperations(spark)
+      val sparkOps: SparkOperationsTrait = new SparkOperations(spark)
 
-      // Functional composition for data loading with error handling
       val loadResult = for {
         movies <- sparkOps.loadMovies("src/main/scala/data/movies.csv")
         ratings <- sparkOps.loadRatings("src/main/scala/data/ratings.csv")
@@ -27,10 +28,8 @@ object Main {
           println(s"Movies loaded count: ${movies.count()}")
           println(s"Ratings loaded count: ${ratings.count()}")
 
-          // Comprehensive Spark-based analytics
           sparkOps.performEnhancedAnalysis(movies, ratings)
 
-          // Save results using functional error handling
           sparkOps.saveResults(movies, ratings) match {
             case Success(_) => println("\n✅ Results saved successfully!")
             case Failure(ex) => println(s"\n❌ Error saving results: ${ex.getMessage}")
