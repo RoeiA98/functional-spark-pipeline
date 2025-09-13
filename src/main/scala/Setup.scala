@@ -1,9 +1,9 @@
 import org.apache.spark.sql.SparkSession
 
-object SetupTest {
+object Setup {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder()
-      .appName("Setup Test")
+      .appName("Setup")
       .master("local[*]")
       .getOrCreate()
 

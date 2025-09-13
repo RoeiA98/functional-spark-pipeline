@@ -1,4 +1,4 @@
-package data
+package Models
 
 /**
  * Case class representing a movie
@@ -16,15 +16,6 @@ case class Movie(movieId: Int, title: String, genres: String)
  * @param timestamp rating timestamp
  */
 case class Rating(userId: Int, movieId: Int, rating: Double, timestamp: Long)
-
-/**
- * Case class representing a tag
- * @param userId unique user identifier
- * @param movieId unique movie identifier
- * @param tag user-generated tag
- * @param timestamp tag timestamp
- */
-case class Tag(userId: Int, movieId: Int, tag: String, timestamp: Long)
 
 /**
  * Case class for analyzed results

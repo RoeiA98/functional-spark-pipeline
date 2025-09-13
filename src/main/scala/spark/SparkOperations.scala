@@ -1,11 +1,12 @@
 package spark
 
-import data.{Movie, Rating, Tag, GenreStats}
+import Models._
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.rdd.RDD
 import transformations.DataLoader
 import scala.util.{Try, Success, Failure}
+import org.apache.spark.sql.expressions.Window
 
 /**
  * Spark operations for movie data processing
@@ -17,13 +18,12 @@ class SparkOperations(spark: SparkSession) {
   /**
    * Load movies using RDD API with functional error handling
    * @param filePath path to movies.csv
-   * @return Try[Dataset[Movie]] - functional error handling
    */
   def loadMovies(filePath: String): Try[Dataset[Movie]] = Try {
     val moviesRDD: RDD[Movie] = spark.sparkContext
       .textFile(filePath)
-      .filter(!_.startsWith("movieId")) // Remove header
-      .flatMap(DataLoader.parseMovieLine) // flatMap - Spark operation 1
+      .filter(!_.startsWith("movieId"))
+      .flatMap(DataLoader.parseMovieLine)
 
     moviesRDD.toDS()
   }
@@ -31,7 +31,6 @@ class SparkOperations(spark: SparkSession) {
   /**
    * Load ratings using Dataset API
    * @param filePath path to ratings.csv
-   * @return Try[Dataset[Rating]]
    */
   def loadRatings(filePath: String): Try[Dataset[Rating]] = Try {
     spark.read
@@ -51,7 +50,7 @@ class SparkOperations(spark: SparkSession) {
    * Calculate average ratings by genre using multiple Spark operations
    * Demonstrates: map, filter, groupBy, aggregation
    */
-  def calculateGenreStats(movies: Dataset[Movie], ratings: Dataset[Rating]): Dataset[GenreStats] = {
+  private def calculateGenreStats(movies: Dataset[Movie], ratings: Dataset[Rating]): Dataset[GenreStats] = {
     // Join movies with ratings - Spark operation 2 (join)
     val movieRatings = movies.join(ratings, "movieId")
 
@@ -75,7 +74,7 @@ class SparkOperations(spark: SparkSession) {
    * Find top-rated movies using functional operations
    * Demonstrates reduceByKey pattern
    */
-  def findTopRatedMovies(movies: Dataset[Movie], ratings: Dataset[Rating], minRatings: Int = 100): Dataset[(String, Double, Long)] = {
+  private def findTopRatedMovies(movies: Dataset[Movie], ratings: Dataset[Rating], minRatings: Int = 100): Dataset[(String, Double, Long)] = {
     val movieStats = ratings
       .groupBy("movieId")
       .agg(
@@ -95,68 +94,92 @@ class SparkOperations(spark: SparkSession) {
   }
 
   /**
-   * Closure example - captures external variable
-   * Demonstrates closures in Spark transformations
+   * Enhanced movie analytics with more interesting statistics
    */
-  def filterMoviesByDecade(movies: Dataset[Movie], decade: Int): Dataset[Movie] = {
-    // Closure captures 'decade' variable
-    val decadeFilter = (title: String) => {
-      val yearPattern = "\\((\\d{4})\\)".r
-      yearPattern.findFirstMatchIn(title) match {
-        case Some(m) =>
-          val year = m.group(1).toInt
-          year >= decade && year < decade + 10
-        case None => false
-      }
+  def performEnhancedAnalysis(movies: Dataset[Movie], ratings: Dataset[Rating]): Unit = {
+
+    println("\n=== ENHANCED MOVIE ANALYTICS ===")
+
+    // 1. Top movie genre for each year with its rating
+    println("\n1. Top Movie Genre by Year:")
+    val topGenreByYear = movies
+      .filter(col("genres") =!= "(no genres listed)")
+      .withColumn("year", regexp_extract(col("title"), "\\((\\d{4})\\)", 1).cast("int"))
+      .filter(col("year").isNotNull && col("year") >= 1990)
+      .withColumn("genre", explode(split(col("genres"), "\\|")))
+      .join(ratings, "movieId")
+      .groupBy("year", "genre")
+      .agg(
+        round(avg("rating"), 2).as("avgRating"),
+        count("*").as("movieCount")
+      )
+      .withColumn("rank", row_number().over(
+        Window.partitionBy("year").orderBy(desc("movieCount"), desc("avgRating"))
+      ))
+      .filter(col("rank") === 1)
+      .select("year", "genre", "avgRating")
+      .orderBy("year")
+
+    topGenreByYear.show(35, truncate = false)
+
+    // 2. Top rated movie for each decade
+    println("\n2. Top Rated Movie by Decade:")
+    val topMovieByDecade = movies
+      .withColumn("year", regexp_extract(col("title"), "\\((\\d{4})\\)", 1).cast("int"))
+      .filter(col("year").isNotNull && col("year") >= 1900)
+      .withColumn("decade", ((col("year") / 10).cast("int") * 10))
+      .join(ratings, "movieId")
+      .groupBy("decade", "movieId", "title")
+      .agg(
+        round(avg("rating"), 2).as("avgRating"),
+        count("*").as("ratingCount")
+      )
+      .filter(col("ratingCount") >= 50)
+      .withColumn("rank", row_number().over(
+        Window.partitionBy("decade").orderBy(desc("avgRating"), desc("ratingCount"))
+      ))
+      .filter(col("rank") === 1)
+      .select("decade", "title", "avgRating")
+      .orderBy("decade")
+
+    topMovieByDecade.show(20, truncate = false)
+
+    // 3. Top rated movie for each genre in each decade
+    println("\n3. Top Rated Movie for each Genre in each Decade:")
+    val topMovieByGenreDecade = movies
+      .filter(col("genres") =!= "(no genres listed)")
+      .withColumn("year", regexp_extract(col("title"), "\\((\\d{4})\\)", 1).cast("int"))
+      .filter(col("year").isNotNull && col("year") >= 1980)
+      .withColumn("decade", (col("year") / 10).cast("int") * 10)
+      .withColumn("genre", explode(split(col("genres"), "\\|")))
+      .join(ratings, "movieId")
+      .groupBy("decade", "genre", "movieId", "title")
+      .agg(
+        round(avg("rating"), 2).as("avgRating"),
+        count("*").as("ratingCount")
+      )
+      .filter(col("ratingCount") >= 20)
+      .withColumn("rank", row_number().over(
+        Window.partitionBy("decade", "genre").orderBy(desc("avgRating"), desc("ratingCount"))
+      ))
+      .filter(col("rank") === 1)
+      .select("decade", "genre", "title", "avgRating")
+      .orderBy("decade", "genre")
+
+    // Get distinct decades and create separate tables
+    val decades = topMovieByGenreDecade.select("decade").distinct().collect().map(_.getAs[Int]("decade")).sorted
+
+    decades.foreach { decade =>
+      println(s"\n${decade}s Top Movies by Genre:")
+      topMovieByGenreDecade
+        .filter(col("decade") === decade)
+        .select("genre", "title", "avgRating")
+        .orderBy("genre")
+        .show(50, truncate = false)
     }
-
-    // Register UDF that uses closure
-    val decadeFilterUDF = udf(decadeFilter)
-    movies.filter(decadeFilterUDF(col("title")))
   }
 
-  /**
-   * Comprehensive movie analytics using all Spark operations
-   */
-  def performComprehensiveAnalysis(movies: Dataset[Movie], ratings: Dataset[Rating]): Unit = {
-    import spark.implicits._
-
-    println("\n=== COMPREHENSIVE MOVIE ANALYTICS ===")
-
-    // 1. Genre Statistics
-    println("\n1. Top 10 Genres by Average Rating:")
-    val genreStats = calculateGenreStats(movies, ratings)
-    genreStats.orderBy(desc("avgRating")).show(10)
-
-    // 2. Top Movies
-    println("\n2. Top 10 Highest Rated Movies (min 1000 ratings):")
-    findTopRatedMovies(movies, ratings, 1000).show(10)
-
-    // 3. Movies by Decade Analysis
-    println("\n3. Movies by Decade (2000s):")
-    val movies2000s = filterMoviesByDecade(movies, 2000)
-    println(s"Movies from 2000s: ${movies2000s.count()}")
-    movies2000s.show(5)
-
-    // 4. User Rating Patterns
-    println("\n4. Rating Distribution:")
-    ratings.groupBy("rating")
-      .count()
-      .orderBy("rating")
-      .show()
-
-    // 5. Most Active Users
-    println("\n5. Most Active Users (Top 10):")
-    ratings.groupBy("userId")
-      .count()
-      .orderBy(desc("count"))
-      .show(10)
-  }
-
-  /**
-   * Save results to files - required by project specs
-   */
-  /**
+  /*
    * Save results to simple text files
    */
   def saveResults(movies: Dataset[Movie], ratings: Dataset[Rating]): Try[Unit] = Try {
