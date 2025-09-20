@@ -147,11 +147,10 @@ class SparkOperations(spark: SparkSession) extends SparkOperationsTrait {
    * @return Dataset containing movie title, average rating, and rating count
    * @throws MovieAnalyticsPlatformException if analysis fails
    */
-  private def findTopRatedMovies(movies: Dataset[Movie], ratings: Dataset[Rating], minRatings: Int = 100): Dataset[(String, Double, Long)] = {
+  private def findTopRatedMovies(movies: Dataset[Movie], ratings: Dataset[Rating]): Dataset[(String, Double, Long)] = {
     // Input validation - method starts with validating arguments
     require(movies != null, "Movies dataset cannot be null")
     require(ratings != null, "Ratings dataset cannot be null")
-    require(minRatings > 0, "Minimum ratings must be positive")
 
     /*
      * Calculate movie statistics by aggregating ratings per movie
@@ -164,7 +163,6 @@ class SparkOperations(spark: SparkSession) extends SparkOperationsTrait {
         round(avg("rating"), 2).as("avgRating"),
         count("*").as("ratingCount")
       )
-      .filter(col("ratingCount") >= minRatings) // Closure in filter
 
     /*
      * Join with movie titles and select relevant columns
@@ -328,7 +326,7 @@ class SparkOperations(spark: SparkSession) extends SparkOperationsTrait {
        * Demonstrates functional composition and method chaining
        */
       val genreStats = calculateGenreStats(movies, ratings).collect()
-      val topMovies = findTopRatedMovies(movies, ratings, 100).collect()
+      val topMovies = findTopRatedMovies(movies, ratings).collect()
 
       // Create results directory if it doesn't exist
       val resultsDir = new File("results")

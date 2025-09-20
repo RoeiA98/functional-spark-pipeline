@@ -15,5 +15,5 @@ trait DataLoaderTrait {
    * @param line CSV line containing movie data, must not be null
    * @return Option containing Movie object if parsing succeeds, None otherwise
    */
-  def parseMovieLine(line: String): Option[Movie]
+  private[transformations] def parseMovieLine(line: String): Option[Movie]
 }
